@@ -11,6 +11,10 @@
 
 namespace Xmf;
 
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileObject;
+
 /**
  * @category  Xmf\Utility
  * @package   Xmf
@@ -45,11 +49,17 @@ class Utility
         return array_combine($keys, $values);
     }
 
-    public static function arrayShuffleAssoc(array $array): array
-    {
+    public static function arrayShuffleAssoc(array $array): array {
         $keys = array_keys($array);
-        shuffle($keys);
-        return array_merge(array_flip($keys), $array);
+        for ($i = count($keys) - 1; $i > 0; $i--) {
+            $j = random_int(0, $i);
+            list($keys[$i], $keys[$j]) = [$keys[$j], $keys[$i]];
+        }
+        $shuffledArray = [];
+        foreach ($keys as $key) {
+            $shuffledArray[$key] = $array[$key];
+        }
+        return $shuffledArray;
     }
 
     public static function arrayRandom(array $array, int $num = 1): mixed
@@ -321,9 +331,12 @@ class Utility
         return filter_var($str, FILTER_VALIDATE_EMAIL) !== false;
     }
 
-    public static function stringIsUrl(string $str): bool
-    {
-        return filter_var($str, FILTER_VALIDATE_URL) !== false;
+    public static function stringIsUrl(string $str): bool {
+        if (filter_var($str, FILTER_VALIDATE_URL) === false) {
+            return false;
+        }
+        $protocol = parse_url($str, PHP_URL_SCHEME);
+        return in_array($protocol, ['http', 'https']);
     }
 
     public static function stringIsIp(string $str): bool
@@ -354,7 +367,7 @@ class Utility
 
     public static function stringBetween(string $str, string $start, string $end): string
     {
-        preg_match('/(?<=' . preg_quote($start) . ')(.*)(?=' . preg_quote($end) . ')/s', $str, $matches);
+        preg_match('/(?<=' . preg_quote($start, '/') . ')(.*)(?=' . preg_quote($end, '/') . ')/s', $str, $matches);
         return $matches[0] ?? '';
     }
 
@@ -552,7 +565,9 @@ class Utility
     public static function fileCopyDirectory(string $sourceDirPath, string $destinationDirPath): void
     {
         if (!is_dir($destinationDirPath)) {
-            mkdir($destinationDirPath, 0777, true);
+            if (!mkdir($destinationDirPath, 0777, true) && !is_dir($destinationDirPath)) {
+                throw new \RuntimeException(sprintf('Directory "%s" was not created', $destinationDirPath));
+            }
         }
         foreach (scandir($sourceDirPath) as $file) {
             if ($file == '.' || $file == '..') {
