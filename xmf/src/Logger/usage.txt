@@ -1,0 +1,52 @@
+In your module, you can use the Xmf\Logger class to log debug messages. This will allow you to log messages to a file, which can be useful for debugging purposes.
+
+1) In your module XXX, add a debug option to the module's configuration. This will allow you to enable or disable debug messages in your module.
+
+xoops_version.php
+
+// Add to your module's config options
+$modversion['config'][] = [
+    'name'        => 'enable_debug',
+    'title'       => 'CO_' . $moduleDirNameUpper . '_' . 'ENABLE_DEBUG',
+    'description' => 'CO_' . $moduleDirNameUpper . '_' . 'ENABLE_DEBUG_DESC',
+    'formtype'    => 'yesno',
+    'valuetype'   => 'int',
+    'default'     => 0,  // Default is 'No' for production
+];
+
+2) Add translations to your language file:
+
+\modules\XXX\language\english\common.php
+
+\define('CO_' . $moduleDirNameUpper . '_' . 'ENABLE_DEBUG', 'Enable Debugging?');
+\define('CO_' . $moduleDirNameUpper . '_' . 'ENABLE_DEBUG_DESC', 'If you enable this, you will log all the debug messages');
+
+
+3) In your module, create a folder logs, and an empty file “module.log”
+
+\modules\XXX\logs\module.log
+
+4) Then in any file in your module add following:
+
+use Xmf\Logger\Logger;
+use Xmf\Logger\LoggerFactory;
+
+$logFile = dirname(__DIR__)  . '/logs/module.log';
+$enabled = $helper->getConfig('enable_debug');
+$dir = $helper->getDirname();
+$logger = LoggerFactory::getLogger($dir, $enabled, $logFile);
+
+
+5) And then start sending your debug message, for example::
+
+$logger->debug("This is a debug message.");
+$logger->info("This is an info message.");
+$logger->debug("Entering UserController::index()");
+$logger->info("User authenticated: " . $xoopsUser->getVar('uname'));
+
+6) Which will be saved in your /logs/module.log file:
+
+[2024-04-27T08:56:55.111519+00:00] publisherrouter.DEBUG: This is a debug message. [] []
+[2024-04-27T08:56:55.111895+00:00] publisherrouter.INFO: This is an info message. [] []
+[2024-04-27T08:56:55.111939+00:00] publisherrouter.DEBUG: Entering UserController::index() [] []
+[2024-04-27T08:56:55.111984+00:00] publisherrouter.INFO: User authenticated: admin [] []
