@@ -24,53 +24,27 @@ use SplFileObject;
  */
 class Utility
 {
-    public static function arrayGet(array $array, string $key, mixed $default = null): mixed
+    public static function arrayDeepMerge(array &$array1, array &$array2): array
     {
-        return $array[$key] ?? $default;
-    }
-
-    public static function arrayPluck(array $array, string $key): array
-    {
-        return array_column($array, $key);
-    }
-
-    public static function arrayRemoveEmpty(array $array): array
-    {
-        return array_filter($array);
-    }
-
-    public static function arrayFlatten(array $array): array
-    {
-        return iterator_to_array(new RecursiveIteratorIterator(new RecursiveArrayIterator($array)), false);
-    }
-
-    public static function arrayZip(array $keys, array $values): array
-    {
-        return array_combine($keys, $values);
-    }
-
-    public static function arrayShuffleAssoc(array $array): array {
-        $keys = array_keys($array);
-        for ($i = count($keys) - 1; $i > 0; $i--) {
-            $j = random_int(0, $i);
-            list($keys[$i], $keys[$j]) = [$keys[$j], $keys[$i]];
+        $merged = $array1;
+        foreach ($array2 as $key => &$value) {
+            if (is_array($value) && isset($merged[$key]) && is_array($merged[$key])) {
+                $merged[$key] = self::arrayDeepMerge($merged[$key], $value);
+            } else {
+                $merged[$key] = $value;
+            }
         }
-        $shuffledArray = [];
-        foreach ($keys as $key) {
-            $shuffledArray[$key] = $array[$key];
-        }
-        return $shuffledArray;
+        return $merged;
     }
 
-    public static function arrayRandom(array $array, int $num = 1): mixed
+    public static function arrayExcept(array $array, array $keys): array
     {
-        $keys = array_rand($array, $num);
-        return is_array($keys) ? array_intersect_key($array, array_flip($keys)) : $array[$keys];
+        return array_diff_key($array, array_flip($keys));
     }
 
-    public static function arrayIsAssociative(array $array): bool
+    public static function arrayFindDuplicates(array $array): array
     {
-        return array_keys($array) !== range(0, count($array) - 1);
+        return array_unique(array_diff_assoc($array, array_unique($array)));
     }
 
     public static function arrayFirst(array $array): mixed
@@ -78,9 +52,14 @@ class Utility
         return reset($array);
     }
 
-    public static function arrayLast(array $array): mixed
+    public static function arrayFlatten(array $array): array
     {
-        return end($array);
+        return iterator_to_array(new RecursiveIteratorIterator(new RecursiveArrayIterator($array)), false);
+    }
+
+    public static function arrayGet(array $array, string $key, mixed $default = null): mixed
+    {
+        return $array[$key] ?? $default;
     }
 
     public static function arrayGetKey(array $array, mixed $value): int|string|false
@@ -93,77 +72,20 @@ class Utility
         return array_merge(array_slice($array, 0, $position), $insertArray, array_slice($array, $position));
     }
 
-    public static function arrayMoveKey(array $array, int|string $key, int $position): array
+    public static function arrayIsAssociative(array $array): bool
     {
-        if (!array_key_exists($key, $array)) {
-            return $array;
+        return array_keys($array) !== range(0, count($array) - 1);
+    }
+
+    public static function arrayKeyExistsRecursive(array $keys, array $array): bool
+    {
+        foreach ($keys as $key) {
+            if (!isset($array[$key])) {
+                return false;
+            }
+            $array = $array[$key];
         }
-        $item = [$key => $array[$key]];
-        unset($array[$key]);
-        return array_merge(array_slice($array, 0, $position), $item, array_slice($array, $position));
-    }
-
-    public static function arrayOnly(array $array, array $keys): array
-    {
-        return array_intersect_key($array, array_flip($keys));
-    }
-
-    public static function arrayExcept(array $array, array $keys): array
-    {
-        return array_diff_key($array, array_flip($keys));
-    }
-
-    public static function arrayRenameKey(array &$array, string $oldKey, string $newKey): void
-    {
-        if (array_key_exists($oldKey, $array)) {
-            $array[$newKey] = $array[$oldKey];
-            unset($array[$oldKey]);
-        }
-    }
-
-    public static function arrayMapKeys(array $array, callable $callback): array
-    {
-        $keys = array_map($callback, array_keys($array));
-        return array_combine($keys, $array);
-    }
-
-    public static function arrayMapAssoc(array $array, callable $callback): array
-    {
-        return array_map($callback, $array, array_keys($array));
-    }
-
-    public static function arrayMultiply(array $array, float $multiplier): array
-    {
-        return array_map(fn($value) => $value * $multiplier, $array);
-    }
-
-    public static function arrayPartition(array $array, callable $predicate): array
-    {
-        $matches = array_filter($array, $predicate);
-        $nonMatches = array_diff_key($array, $matches);
-        return [$matches, $nonMatches];
-    }
-
-    public static function arrayReduceAssoc(array $array, callable $callback, mixed $initial = null): mixed
-    {
-        return array_reduce(array_keys($array), fn($carry, $key) => $callback($carry, $key, $array[$key]), $initial);
-    }
-
-    public static function arrayTrimValues(array $array): array
-    {
-        return array_map('trim', $array);
-    }
-
-    public static function arrayUniqueAssoc(array $array): array
-    {
-        $serialized = array_map('serialize', $array);
-        $unique = array_unique($serialized);
-        return array_intersect_key($array, array_flip($unique));
-    }
-
-    public static function arrayValuesAssoc(array $array): array
-    {
-        return array_map('array_values', $array);
+        return true;
     }
 
     public static function arrayKeysMulti(array $array): array
@@ -175,13 +97,82 @@ class Utility
         return array_unique($result);
     }
 
-    public static function arrayValuesMulti(array $array): array
+    public static function arrayLast(array $array): mixed
     {
-        $result = [];
-        array_walk_recursive($array, function ($value) use (&$result) {
-            $result[] = $value;
-        });
-        return $result;
+        return end($array);
+    }
+
+    public static function arrayMapAssoc(array $array, callable $callback): array
+    {
+        return array_map($callback, $array, array_keys($array));
+    }
+
+    public static function arrayMapKeys(array $array, callable $callback): array
+    {
+        $keys = array_map($callback, array_keys($array));
+        return array_combine($keys, $array);
+    }
+
+    public static function arrayMoveKey(array $array, int|string $key, int $position): array
+    {
+        if (!array_key_exists($key, $array)) {
+            return $array;
+        }
+        $item = [$key => $array[$key]];
+        unset($array[$key]);
+        return array_merge(array_slice($array, 0, $position), $item, array_slice($array, $position));
+    }
+
+    public static function arrayMultiply(array $array, float $multiplier): array
+    {
+        return array_map(fn($value) => $value * $multiplier, $array);
+    }
+
+    public static function arrayOnly(array $array, array $keys): array
+    {
+        return array_intersect_key($array, array_flip($keys));
+    }
+
+    public static function arrayPadAssoc(array $array, int $size, mixed $value): array
+    {
+        $result = $array + array_fill(0, $size, $value);
+        return array_slice($result, 0, $size, true);
+    }
+
+    public static function arrayPartition(array $array, callable $predicate): array
+    {
+        $matches = array_filter($array, $predicate);
+        $nonMatches = array_diff_key($array, $matches);
+        return [$matches, $nonMatches];
+    }
+
+    public static function arrayPluck(array $array, string $key): array
+    {
+        return array_column($array, $key);
+    }
+
+    public static function arrayRandom(array $array, int $num = 1): mixed
+    {
+        $keys = array_rand($array, $num);
+        return is_array($keys) ? array_intersect_key($array, array_flip($keys)) : $array[$keys];
+    }
+
+    public static function arrayReduceAssoc(array $array, callable $callback, mixed $initial = null): mixed
+    {
+        return array_reduce(array_keys($array), fn($carry, $key) => $callback($carry, $key, $array[$key]), $initial);
+    }
+
+    public static function arrayRemoveEmpty(array $array): array
+    {
+        return array_filter($array);
+    }
+
+    public static function arrayRenameKey(array &$array, string $oldKey, string $newKey): void
+    {
+        if (array_key_exists($oldKey, $array)) {
+            $array[$newKey] = $array[$oldKey];
+            unset($array[$oldKey]);
+        }
     }
 
     public static function arrayReplaceRecursive(array $array, array ...$arrays): array
@@ -198,33 +189,6 @@ class Utility
         return $array;
     }
 
-    public static function arrayPadAssoc(array $array, int $size, mixed $value): array
-    {
-        $result = $array + array_fill(0, $size, $value);
-        return array_slice($result, 0, $size, true);
-    }
-
-    public static function arraySliceAssoc(array $array, int $offset, int $length = null, bool $preserveKeys = true): array
-    {
-        return array_slice($array, $offset, $length, $preserveKeys);
-    }
-
-    public static function arrayWalkRecursiveAssoc(array &$array, callable $callback): void
-    {
-        array_walk_recursive($array, $callback);
-    }
-
-    public static function arrayKeyExistsRecursive(array $keys, array $array): bool
-    {
-        foreach ($keys as $key) {
-            if (!isset($array[$key])) {
-                return false;
-            }
-            $array = $array[$key];
-        }
-        return true;
-    }
-
     public static function arraySetRecursive(array &$array, array $keys, mixed $value): void
     {
         foreach ($keys as $key) {
@@ -233,20 +197,54 @@ class Utility
         $array = $value;
     }
 
-    public static function arrayUnsetRecursive(array &$array, array $keys): void
+    public static function arrayShuffleAssoc(array $array): array
     {
-        foreach ($keys as $key) {
-            if (!isset($array[$key])) {
-                return;
-            }
-            $array = &$array[$key];
+        $keys = array_keys($array);
+        for ($i = count($keys) - 1; $i > 0; $i--) {
+            $j = random_int(0, $i);
+            list($keys[$i], $keys[$j]) = [$keys[$j], $keys[$i]];
         }
-        unset($array);
+        $shuffledArray = [];
+        foreach ($keys as $key) {
+            $shuffledArray[$key] = $array[$key];
+        }
+        return $shuffledArray;
+    }
+
+    public static function arraySliceAssoc(array $array, int $offset, int $length = null, bool $preserveKeys = true): array
+    {
+        return array_slice($array, $offset, $length, $preserveKeys);
+    }
+
+    public function arraySortByColumnSortsArray()
+    {
+        $array = [
+            ['name' => 'John', 'age' => 30],
+            ['name' => 'Jane', 'age' => 20],
+            ['name' => 'Doe', 'age' => 25]
+        ];
+        Utility::arraySortByColumn($array, 'age');
+        $this->assertEquals('Jane', $array[0]['name']);
+        $this->assertEquals('Doe', $array[1]['name']);
+        $this->assertEquals('John', $array[2]['name']);
     }
 
     public static function arraySortByColumn(array &$array, string $column, int $direction = SORT_ASC, int $type = SORT_REGULAR): void
     {
         array_multisort(array_column($array, $column), $direction, $type, $array);
+    }
+
+    public function arraySortByMultipleColumnsSortsArray()
+    {
+        $array = [
+            ['name' => 'John', 'age' => 30, 'city' => 'New York'],
+            ['name' => 'Jane', 'age' => 20, 'city' => 'Los Angeles'],
+            ['name' => 'Doe', 'age' => 30, 'city' => 'Chicago']
+        ];
+        Utility::arraySortByMultipleColumns($array, ['age', 'city']);
+        $this->assertEquals('Jane', $array[0]['name']);
+        $this->assertEquals('Doe', $array[1]['name']);
+        $this->assertEquals('John', $array[2]['name']);
     }
 
     public static function arraySortByMultipleColumns(array &$array, array $columns, array $directions = [], array $types = []): void
@@ -259,11 +257,6 @@ class Utility
         }
         $args[] = &$array;
         array_multisort(...$args);
-    }
-
-    public static function arraySortByObjectProperty(array &$array, string $property, int $direction = SORT_ASC, int $type = SORT_REGULAR): void
-    {
-        usort($array, fn($a, $b) => ($direction === SORT_ASC ? $a->$property <=> $b->$property : $b->$property <=> $a->$property));
     }
 
     public static function arraySortByMultipleObjectProperties(array &$array, array $properties, array $directions = [], array $types = []): void
@@ -279,126 +272,131 @@ class Utility
         });
     }
 
-    public static function objectToArray($object): array
+    public function arraySortByObjectPropertySortsArray()
     {
-        return json_decode(json_encode($object), true);
+        $object1 = new stdClass();
+        $object1->name = 'John';
+        $object1->age = 30;
+
+        $object2 = new stdClass();
+        $object2->name = 'Jane';
+        $object2->age = 20;
+
+        $object3 = new stdClass();
+        $object3->name = 'Doe';
+        $object3->age = 25;
+
+        $array = [$object1, $object2, $object3];
+        Utility::arraySortByObjectProperty($array, 'age');
+        $this->assertEquals('Jane', $array[0]->name);
+        $this->assertEquals('Doe', $array[1]->name);
+        $this->assertEquals('John', $array[2]->name);
     }
 
-    public static function objectGetProperty($object, string $property, mixed $default = null): mixed
+    public static function arraySortByObjectProperty(array &$array, string $property, int $direction = SORT_ASC, int $type = SORT_REGULAR): void
     {
-        return $object->$property ?? $default;
+        usort($array, fn($a, $b) => ($direction === SORT_ASC ? $a->$property <=> $b->$property : $b->$property <=> $a->$property));
     }
 
-    public static function objectSetProperty($object, string $property, mixed $value): void
+    public static function arrayTrimValues(array $array): array
     {
-        $object->$property = $value;
+        return array_map('trim', $array);
     }
 
-    public static function objectUnsetProperty($object, string $property): void
+    public static function arrayUniqueAssoc(array $array): array
     {
-        unset($object->$property);
+        $serialized = array_map('serialize', $array);
+        $unique = array_unique($serialized);
+        return array_intersect_key($array, array_flip($unique));
     }
 
-    public static function objectToQueryString($object): string
+    public static function arrayUnsetRecursive(array &$array, array $keys): void
     {
-        return http_build_query($object);
+        foreach ($keys as $key) {
+            if (!isset($array[$key])) {
+                return;
+            }
+            $array = &$array[$key];
+        }
+        unset($array);
     }
 
-    public static function queryStringToObject(string $queryString)
+    public static function arrayValuesAssoc(array $array): array
     {
-        parse_str($queryString, $params);
-        return (object)$params;
+        return array_map('array_values', $array);
+    }
+
+    public static function arrayValuesMulti(array $array): array
+    {
+        $result = [];
+        array_walk_recursive($array, function ($value) use (&$result) {
+            $result[] = $value;
+        });
+        return $result;
+    }
+
+    public static function arrayWalkRecursiveAssoc(array &$array, callable $callback): void
+    {
+        array_walk_recursive($array, $callback);
+    }
+
+    public static function arrayZip(array $keys, array $values): array
+    {
+        return array_combine($keys, $values);
+    }
+
+    public static function dateAddDays(string $date, int $days): string
+    {
+        $d = new DateTime($date);
+        $d->modify('+' . $days . ' days');
+        return $d->format('Y-m-d');
     }
 
     // String methods...
-    public static function stringContains(string $haystack, string $needle): bool
+
+    public static function dateDiff(string $startDate, string $endDate): \DateInterval
     {
-        return str_contains($haystack, $needle);
+        $startDate = new DateTime($startDate);
+        $endDate = new DateTime($endDate);
+        return $startDate->diff($endDate);
     }
 
-    public static function stringStartsWith(string $haystack, string $needle): bool
+    public static function dateIsFuture(string $date): bool
     {
-        return str_starts_with($haystack, $needle);
+        return strtotime($date) > time();
     }
 
-    public static function stringEndsWith(string $haystack, string $needle): bool
+    public static function dateIsLeapYear(int $year): bool
     {
-        return str_ends_with($haystack, $needle);
+        return (($year % 4 == 0) && ($year % 100 != 0)) || ($year % 400 == 0);
     }
 
-    public static function stringIsEmail(string $str): bool
+    public static function dateIsPast(string $date): bool
     {
-        return filter_var($str, FILTER_VALIDATE_EMAIL) !== false;
+        return strtotime($date) < time();
     }
 
-    public static function stringIsUrl(string $str): bool {
-        if (filter_var($str, FILTER_VALIDATE_URL) === false) {
-            return false;
-        }
-        $protocol = parse_url($str, PHP_URL_SCHEME);
-        return in_array($protocol, ['http', 'https']);
+    public static function dateIsToday(string $date): bool
+    {
+        return $date === date('Y-m-d');
     }
 
-    public static function stringIsIp(string $str): bool
+    public static function dateIsValid(string $date, string $format = 'Y-m-d'): bool
     {
-        return filter_var($str, FILTER_VALIDATE_IP) !== false;
+        $dateTime = DateTime::createFromFormat($format, $date);
+        return $dateTime && $dateTime->format($format) === $date;
     }
 
-    public static function stringCamelToSnake(string $str): string
+    public static function dateIsWeekday(string $date): bool
     {
-        return strtolower(preg_replace('/([a-zA-Z])(?=[A-Z])/', '$1_', $str));
+        $day = date('N', strtotime($date));
+        return ($day >= 1 && $day <= 5);
     }
 
-    public static function stringSnakeToCamel(string $str, bool $capitaliseFirstChar = true): string
+    public static function dateIsWeekend(string $date): bool
     {
-        $str = str_replace('_', '', ucwords($str, '_'));
-        return $capitaliseFirstChar ? ucfirst($str) : lcfirst($str);
-    }
-
-    public static function stringTruncate(string $str, int $length, string $ellipsis = '...'): string
-    {
-        return mb_strlen($str) > $length ? mb_substr($str, 0, $length - mb_strlen($ellipsis)) . $ellipsis : $str;
-    }
-
-    public static function stringRandom(int $length): string
-    {
-        return bin2hex(random_bytes($length / 2));
-    }
-
-    public static function stringBetween(string $str, string $start, string $end): string
-    {
-        preg_match('/(?<=' . preg_quote($start, '/') . ')(.*)(?=' . preg_quote($end, '/') . ')/s', $str, $matches);
-        return $matches[0] ?? '';
-    }
-
-    public static function stringIsHexColor(string $str): bool
-    {
-        return preg_match('/^#[a-f0-9]{6}$/i', $str) === 1;
-    }
-
-    public static function stringToSlug(string $str): string
-    {
-        $str = preg_replace('/[^a-zA-Z0-9 -]/', '', $str);
-        $str = strtolower(trim($str));
-        $str = preg_replace('/[ ]+/', '-', $str);
-        return $str;
-    }
-
-    public static function stringHumanFilesize(int $bytes, int $decimals = 2): string
-    {
-        $sz = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-        $factor = (int)floor((strlen((string)$bytes) - 1) / 3);
-        return sprintf("%.{$decimals}f", $bytes / pow(1024, $factor)) . @$sz[$factor];
-    }
-
-    public static function stringBase64UrlEncode(string $input): string
-    {
-        return strtr(base64_encode($input), '+/', '-_');
-    }
-
-    public static function stringBase64UrlDecode(string $input)
-    {
-        return base64_decode(strtr($input, '-_', '+/'));
+        $day = date('N', strtotime($date));
+        return ($day == 6 || $day == 7);
     }
 
     public static function dateRange(string $startDate, string $endDate, string $format = 'Y-m-d'): array
@@ -413,26 +411,6 @@ class Utility
         return $dates;
     }
 
-    public static function dateDiff(string $startDate, string $endDate): \DateInterval
-    {
-        $startDate = new DateTime($startDate);
-        $endDate = new DateTime($endDate);
-        return $startDate->diff($endDate);
-    }
-
-    public static function dateIsValid(string $date, string $format = 'Y-m-d'): bool
-    {
-        $dateTime = DateTime::createFromFormat($format, $date);
-        return $dateTime && $dateTime->format($format) === $date;
-    }
-
-    public static function dateAddDays(string $date, int $days): string
-    {
-        $d = new DateTime($date);
-        $d->modify('+' . $days . ' days');
-        return $d->format('Y-m-d');
-    }
-
     public static function dateSubtractDays(string $date, int $days): string
     {
         $d = new DateTime($date);
@@ -440,31 +418,37 @@ class Utility
         return $d->format('Y-m-d');
     }
 
-    public static function dateIsWeekend(string $date): bool
+    public static function fileCreateDirectory(string $dirPath): bool
     {
-        $day = date('N', strtotime($date));
-        return ($day == 6 || $day == 7);
+        return mkdir($dirPath, 0777, true);
     }
 
-    public static function dateIsToday(string $date): bool
+    public static function fileDelete(string $filePath): bool
     {
-        return $date === date('Y-m-d');
+        return unlink($filePath);
     }
 
-    public static function dateIsPast(string $date): bool
+    public static function fileDownload(string $filePath): void
     {
-        return strtotime($date) < time();
+        if (!is_file($filePath)) {
+            return;
+        }
+        $fileSize = filesize($filePath);
+        $fileName = basename($filePath);
+        $mimeType = self::fileGetMimeType($filePath);
+        header('Content-Type: ' . $mimeType);
+        header('Content-Disposition: attachment; filename="' . $fileName . '"');
+        header('Content-Length: ' . $fileSize);
+        readfile($filePath);
+        exit();
     }
 
-    public static function dateIsFuture(string $date): bool
+    public static function fileGetMimeType(string $filePath)
     {
-        return strtotime($date) > time();
-    }
-
-    public static function fileIsImage(string $filename): bool
-    {
-        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        return in_array($ext, ['jpg', 'jpeg', 'gif', 'png', 'bmp']);
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $filePath);
+        finfo_close($finfo);
+        return $mimeType;
     }
 
     public static function fileGetContentsChunked(string $filePath, int $chunkSize, callable $callback): bool
@@ -487,16 +471,43 @@ class Utility
         return true;
     }
 
+    public static function fileGetCreationTime(string $filePath): int
+    {
+        return filectime($filePath);
+    }
+
+    public static function fileGetExtension(string $filePath)
+    {
+        return strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+    }
+
+    public static function fileGetHash(string $filePath, string $algorithm = 'md5'): string
+    {
+        return hash_file($algorithm, $filePath);
+    }
+
     public static function fileGetJson(string $filePath)
     {
         $json = file_get_contents($filePath);
         return json_decode($json, true);
     }
 
-    public static function filePutJson(string $filePath, $data)
+    public static function fileGetLines(string $filePath): int
     {
-        $json = json_encode($data, JSON_PRETTY_PRINT);
-        return file_put_contents($filePath, $json);
+        $file = new SplFileObject($filePath, 'r');
+        $file->seek(PHP_INT_MAX);
+        return $file->key() + 1;
+    }
+
+    public static function fileGetSize(string $filePath): int
+    {
+        return filesize($filePath);
+    }
+
+    public static function fileIsImage(string $filename): bool
+    {
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        return in_array($ext, ['jpg', 'jpeg', 'gif', 'png', 'bmp']);
     }
 
     public static function fileIsWritableRecursive(string $dirPath): bool
@@ -523,43 +534,10 @@ class Utility
         return true;
     }
 
-    public static function fileGetMimeType(string $filePath)
+    public static function fileMoveDirectory(string $sourceDirPath, string $destinationDirPath): bool
     {
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_file($finfo, $filePath);
-        finfo_close($finfo);
-        return $mimeType;
-    }
-
-    public static function fileGetExtension(string $filePath)
-    {
-        return strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-    }
-
-    public static function fileCreateDirectory(string $dirPath): bool
-    {
-        return mkdir($dirPath, 0777, true);
-    }
-
-    public static function fileDeleteDirectory(string $dirPath): bool
-    {
-        if (!is_dir($dirPath)) {
-            return false; // Return false if the path is not a directory.
-        }
-        foreach (scandir($dirPath) as $file) {
-            if ($file == '.' || $file == '..') {
-                continue;
-            }
-            $path = $dirPath . '/' . $file;
-            if (is_dir($path)) {
-                if (!self::fileDeleteDirectory($path)) {
-                    return false;
-                }
-            } elseif (!unlink($path)) {
-                return false;
-            }
-        }
-        return rmdir($dirPath);
+        self::fileCopyDirectory($sourceDirPath, $destinationDirPath);
+        return self::fileDeleteDirectory($sourceDirPath);
     }
 
     public static function fileCopyDirectory(string $sourceDirPath, string $destinationDirPath): void
@@ -583,10 +561,47 @@ class Utility
         }
     }
 
-    public static function fileMoveDirectory(string $sourceDirPath, string $destinationDirPath): bool
+    public static function fileDeleteDirectory(string $dirPath): bool
     {
-        self::fileCopyDirectory($sourceDirPath, $destinationDirPath);
-        return self::fileDeleteDirectory($sourceDirPath);
+        if (!is_dir($dirPath)) {
+            return false; // Return false if the path is not a directory.
+        }
+        foreach (scandir($dirPath) as $file) {
+            if ($file == '.' || $file == '..') {
+                continue;
+            }
+            $path = $dirPath . '/' . $file;
+            if (is_dir($path)) {
+                if (!self::fileDeleteDirectory($path)) {
+                    return false;
+                }
+            } elseif (!unlink($path)) {
+                return false;
+            }
+        }
+        return rmdir($dirPath);
+    }
+
+    public static function filePutJson(string $filePath, $data)
+    {
+        $json = json_encode($data, JSON_PRETTY_PRINT);
+        return file_put_contents($filePath, $json);
+    }
+
+    public static function fileRename(string $oldPath, string $newPath): bool
+    {
+        return rename($oldPath, $newPath);
+    }
+
+    public static function fileUnzip(string $zipFilePath, string $destinationDirPath): bool
+    {
+        $zip = new ZipArchive();
+        if (!$zip->open($zipFilePath)) {
+            return false;
+        }
+        $zip->extractTo($destinationDirPath);
+        $zip->close();
+        return true;
     }
 
     public static function fileZipDirectory(string $dirPath, string $zipFilePath): bool
@@ -610,30 +625,173 @@ class Utility
         return true;
     }
 
-    public static function fileUnzip(string $zipFilePath, string $destinationDirPath): bool
+    public static function mathRound(float $number, int $precision = 0, int $mode = PHP_ROUND_HALF_UP): float
     {
-        $zip = new ZipArchive();
-        if (!$zip->open($zipFilePath)) {
-            return false;
-        }
-        $zip->extractTo($destinationDirPath);
-        $zip->close();
-        return true;
+        return round($number, $precision, $mode);
     }
 
-    public static function fileDownload(string $filePath): void
+    public static function objectGetProperty($object, string $property, mixed $default = null): mixed
     {
-        if (!is_file($filePath)) {
-            return;
+        return $object->$property ?? $default;
+    }
+
+    public static function objectSetProperty($object, string $property, mixed $value): void
+    {
+        $object->$property = $value;
+    }
+
+    public static function objectToArray($object): array
+    {
+        return json_decode(json_encode($object), true);
+    }
+
+    public static function objectToQueryString($object): string
+    {
+        return http_build_query($object);
+    }
+
+    public static function objectUnsetProperty($object, string $property): void
+    {
+        unset($object->$property);
+    }
+
+    public static function queryStringToObject(string $queryString)
+    {
+        parse_str($queryString, $params);
+        return (object)$params;
+    }
+
+    public static function stringBase64UrlDecode(string $input)
+    {
+        return base64_decode(strtr($input, '-_', '+/'));
+    }
+
+    public static function stringBase64UrlEncode(string $input): string
+    {
+        return strtr(base64_encode($input), '+/', '-_');
+    }
+
+    public static function stringBetween(string $str, string $start, string $end): string
+    {
+        preg_match('/(?<=' . preg_quote($start, '/') . ')(.*)(?=' . preg_quote($end, '/') . ')/s', $str, $matches);
+        return $matches[0] ?? '';
+    }
+
+    public static function stringCamelToSnake(string $str): string
+    {
+        return strtolower(preg_replace('/([a-zA-Z])(?=[A-Z])/', '$1_', $str));
+    }
+
+    public static function stringContains(string $haystack, string $needle): bool
+    {
+        return str_contains($haystack, $needle);
+    }
+
+    public static function stringEndsWith(string $haystack, string $needle): bool
+    {
+        return str_ends_with($haystack, $needle);
+    }
+
+    public static function stringHumanFilesize(int $bytes, int $decimals = 2): string
+    {
+        $sz = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+        $factor = (int)floor((strlen((string)$bytes) - 1) / 3);
+        return sprintf("%.{$decimals}f", $bytes / pow(1024, $factor)) . @$sz[$factor];
+    }
+
+    public static function stringIsBase64(string $str): bool
+    {
+        return base64_encode(base64_decode($str, true)) === $str;
+    }
+
+    public static function stringIsEmail(string $str): bool
+    {
+        return filter_var($str, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    public static function stringIsHexColor(string $str): bool
+    {
+        return preg_match('/^#[a-f0-9]{6}$/i', $str) === 1;
+    }
+
+    public static function stringIsIp(string $str): bool
+    {
+        return filter_var($str, FILTER_VALIDATE_IP) !== false;
+    }
+
+    public static function stringIsJson(string $str): bool
+    {
+        json_decode($str);
+        return json_last_error() === JSON_ERROR_NONE;
+    }
+
+    public static function stringIsPalindrome(string $str): bool
+    {
+        $str = strtolower(preg_replace("/[^A-Za-z0-9]/", '', $str));
+        return $str == strrev($str);
+    }
+
+    public static function stringIsUrl(string $str): bool
+    {
+        if (filter_var($str, FILTER_VALIDATE_URL) === false) {
+            return false;
         }
-        $fileSize = filesize($filePath);
-        $fileName = basename($filePath);
-        $mimeType = self::fileGetMimeType($filePath);
-        header('Content-Type: ' . $mimeType);
-        header('Content-Disposition: attachment; filename="' . $fileName . '"');
-        header('Content-Length: ' . $fileSize);
-        readfile($filePath);
-        exit();
+        $protocol = parse_url($str, PHP_URL_SCHEME);
+        return in_array($protocol, ['http', 'https']);
+    }
+
+    public static function stringMask(string $str, int $start, int $end, string $mask = '*'): string
+    {
+        return substr($str, 0, $start) . str_repeat($mask, $end - $start) . substr($str, $end);
+    }
+
+    public static function stringRandom(int $length): string
+    {
+        return bin2hex(random_bytes($length / 2));
+    }
+
+    public static function stringSnakeToCamel(string $str, bool $capitaliseFirstChar = true): string
+    {
+        $str = str_replace('_', '', ucwords($str, '_'));
+        return $capitaliseFirstChar ? ucfirst($str) : lcfirst($str);
+    }
+
+    public static function stringStartsWith(string $haystack, string $needle): bool
+    {
+        return str_starts_with($haystack, $needle);
+    }
+
+    public static function stringToSentenceCase(string $str): string
+    {
+        return ucfirst(strtolower($str));
+    }
+
+    public static function stringToSlug(string $str): string
+    {
+        $str = preg_replace('/[^a-zA-Z0-9 -]/', '', $str);
+        $str = strtolower(trim($str));
+        $str = preg_replace('/[ ]+/', '-', $str);
+        return $str;
+    }
+
+    public static function stringToTitleCase(string $str): string
+    {
+        return ucwords(strtolower($str));
+    }
+
+    public static function stringTruncate(string $str, int $length, string $ellipsis = '...'): string
+    {
+        return mb_strlen($str) > $length ? mb_substr($str, 0, $length - mb_strlen($ellipsis)) . $ellipsis : $str;
+    }
+
+    public static function urlDecode(string $str): string
+    {
+        return urldecode($str);
+    }
+
+    public static function urlEncode(string $str): string
+    {
+        return urlencode($str);
     }
 
     public static function urlGetContents(string $url)
@@ -646,6 +804,12 @@ class Utility
         return $result;
     }
 
+    public static function urlGetDomain(string $url): string
+    {
+        $parsedUrl = parse_url($url);
+        return $parsedUrl['host'] ?? '';
+    }
+
     public static function urlGetHttpStatus(string $url): int
     {
         $ch = curl_init($url);
@@ -655,127 +819,6 @@ class Utility
         $httpStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         return $httpStatus;
-    }
-
-    public static function arrayDeepMerge(array &$array1, array &$array2): array
-    {
-        $merged = $array1;
-        foreach ($array2 as $key => &$value) {
-            if (is_array($value) && isset($merged[$key]) && is_array($merged[$key])) {
-                $merged[$key] = self::arrayDeepMerge($merged[$key], $value);
-            } else {
-                $merged[$key] = $value;
-            }
-        }
-        return $merged;
-    }
-
-    public static function stringToTitleCase(string $str): string
-    {
-        return ucwords(strtolower($str));
-    }
-
-    public static function stringToSentenceCase(string $str): string
-    {
-        return ucfirst(strtolower($str));
-    }
-
-    public static function stringMask(string $str, int $start, int $end, string $mask = '*'): string
-    {
-        return substr($str, 0, $start) . str_repeat($mask, $end - $start) . substr($str, $end);
-    }
-
-    public static function dateIsLeapYear(int $year): bool
-    {
-        return (($year % 4 == 0) && ($year % 100 != 0)) || ($year % 400 == 0);
-    }
-
-    public static function fileGetLines(string $filePath): int
-    {
-        $file = new SplFileObject($filePath, 'r');
-        $file->seek(PHP_INT_MAX);
-        return $file->key() + 1;
-    }
-
-    public static function urlGetDomain(string $url): string
-    {
-        $parsedUrl = parse_url($url);
-        return $parsedUrl['host'] ?? '';
-    }
-
-    public static function stringIsJson(string $str): bool
-    {
-        json_decode($str);
-        return json_last_error() === JSON_ERROR_NONE;
-    }
-
-
-    public static function stringIsBase64(string $str): bool
-    {
-        return base64_encode(base64_decode($str, true)) === $str;
-    }
-
-
-    public static function fileGetSize(string $filePath): int
-    {
-        return filesize($filePath);
-    }
-
-
-    public static function fileRename(string $oldPath, string $newPath): bool
-    {
-        return rename($oldPath, $newPath);
-    }
-
-
-    public static function fileDelete(string $filePath): bool
-    {
-        return unlink($filePath);
-    }
-
-
-    public static function fileGetHash(string $filePath, string $algorithm = 'md5'): string
-    {
-        return hash_file($algorithm, $filePath);
-    }
-
-
-    public static function urlEncode(string $str): string
-    {
-        return urlencode($str);
-    }
-
-    public static function urlDecode(string $str): string
-    {
-        return urldecode($str);
-    }
-
-
-    public static function mathRound(float $number, int $precision = 0, int $mode = PHP_ROUND_HALF_UP): float
-    {
-        return round($number, $precision, $mode);
-    }
-
-    public static function arrayFindDuplicates(array $array): array
-    {
-        return array_unique(array_diff_assoc($array, array_unique($array)));
-    }
-
-    public static function stringIsPalindrome(string $str): bool
-    {
-        $str = strtolower(preg_replace("/[^A-Za-z0-9]/", '', $str));
-        return $str == strrev($str);
-    }
-
-    public static function dateIsWeekday(string $date): bool
-    {
-        $day = date('N', strtotime($date));
-        return ($day >= 1 && $day <= 5);
-    }
-
-    public static function fileGetCreationTime(string $filePath): int
-    {
-        return filectime($filePath);
     }
 
     public static function urlGetPath(string $url): string
