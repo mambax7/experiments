@@ -3,12 +3,13 @@
 namespace Xmf\Logger;
 
 use Monolog\Logger as MonologLogger;
+use Psr\Log\LoggerInterface;
 
 class Logger
 {
     protected $logger;
 
-    public function __construct(MonologLogger $logger)
+    public function __construct(LoggerInterface $logger)
     {
         $this->logger = $logger;
     }
